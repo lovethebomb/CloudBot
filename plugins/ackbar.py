@@ -1,4 +1,8 @@
-" ackbar.py written by lovethebomb fur the funz"
+"""
+ackbar.py written by lovethebomb fur the funz"
+initial credit hubot script
+https://github.com/github/hubot-scripts/blob/master/src/scripts/ackbar.coffee
+"""
 
 from re import match
 from util import hook
