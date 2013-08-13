@@ -11,7 +11,7 @@ from random import choice
 
 @hook.singlethread
 @hook.event('PRIVMSG')
-def ackbar(input=None, say=None):
+def ackbar(paraml, input=None, say=None):
     ackbars = [
         "http://dayofthejedi.com/wp-content/uploads/2011/03/171.jpg",
         "http://dayofthejedi.com/wp-content/uploads/2011/03/152.jpg",
