@@ -15,7 +15,7 @@ def weekend(inp):
     except (http.HTTPError, http.URLError):
         return "Could not fetch page."
 
-    msg = soup.find(class_="msg").string
+    msg = soup.find(class_="msg").encode_contents()
 
     if not msg:
         return "Could not find title."
