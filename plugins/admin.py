@@ -127,6 +127,7 @@ def restart(inp, nick=None, conn=None, bot=None):
     args.insert(0, sys.executable)
     os.execv(sys.executable, args)
 
+
 @hook.command(autohelp=False, permissions=["botcontrol"])
 def clearlogs(inp, input=None):
     """clearlogs -- Clears the bots log(s)."""
