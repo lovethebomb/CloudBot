@@ -4,14 +4,14 @@ initial credit hubot script
 https://github.com/github/hubot-scripts/blob/master/src/scripts/ackbar.coffee
 """
 
-from re import match
-from util import hook
+from re     import match
+from util   import hook
 from random import choice
 
 
 @hook.singlethread
 @hook.event('PRIVMSG')
-def nein(paraml, input=None, say=None, nick=None):
+def nein(paraml, input=None, nick=None):
     nein = [
         "http://www.youtube.com/watch?feature=player_detailpage&v=1MLry6Cn_D4",
         "http://www.youtube.com/watch?v=kQeKskCvJwc",
@@ -23,4 +23,4 @@ def nein(paraml, input=None, say=None, nick=None):
     ]
 
     if match(".* nein", input.msg.lower()):
-        say("Ach, %s !  %s" % (nick, choice(nein)))
+        return 'Ach, {nick!s}! {url!s}'.format(nick = nick, url = choice(nein))
