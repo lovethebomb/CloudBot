@@ -20,4 +20,4 @@ def weekend(inp):
     if not msg:
         return "Could not find title."
 
-    return u"Bientot le week-end? {}".format(msg)
+    return u"Est-ce que c'est bientot le week-end? {}".format(msg)

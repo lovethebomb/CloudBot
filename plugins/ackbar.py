@@ -24,3 +24,4 @@ def nein(paraml, input=None, nick=None):
 
     if match(".* nein", input.msg.lower()):
         return 'Ach, {nick!s}! {url!s}'.format(nick = nick, url = choice(nein))
+

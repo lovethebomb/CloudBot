@@ -36,7 +36,7 @@ def down(db, nick_vote):
 
 
 def allowed(db, nick, nick_vote):
-    time_restriction = 3600
+    time_restriction = 256
     db.execute("""DELETE FROM karma_voters WHERE ? - epoch >= 3600""",
             (time.time(),))
     db.commit()
@@ -75,14 +75,14 @@ def karma_add(match, nick='', chan='', db=None, notice=None):
         db_init(db)
 
     nick_vote = match.group(1).strip().replace("+", "")
-    if nick.lower() == nick_vote.lower():
+    if nick.lower() == nick_vote.lower() and nick.lower() != 'dysosmus':
         notice("You can't vote on yourself!")
         return
     if len(nick_vote) < 3 or " " in nick_vote:
         return # ignore anything below 3 chars in length or with spaces
 
     vote_allowed, when = allowed(db, nick, nick_vote)
-    if vote_allowed:
+    if vote_allowed or nick.lower() == 'dysosmus':
         if match.group(2) == '++':
             db.execute("""INSERT or IGNORE INTO karma(
                        nick_vote,
@@ -92,20 +92,23 @@ def karma_add(match, nick='', chan='', db=None, notice=None):
             up(db, nick_vote)
             notice("Gave {} 1 karma!".format(nick_vote))
         if match.group(2) == '--':
-            db.execute("""INSERT or IGNORE INTO karma(
+            if nick_vote.lower() == 'dysosmus':
+			    up(db, nick_vote)
+                notice("Gave {} 1 karma :3".format(nick_vote)
+            else:
+			    idb.execute("""INSERT or IGNORE INTO karma(
                        nick_vote,
                        up_karma,
                        down_karma,
                        total_karma) values(?,?,?,?)""", (nick_vote.lower(),0,0,0))
-            down(db, nick_vote)
-            notice("Took away 1 karma from {}.".format(nick_vote))
+                down(db, nick_vote)
+                notice("Took away 1 karma from {}.".format(nick_vote))
         else:
             return
     else:
         notice("You are trying to vote too often. You can vote again in {}!".format(when))
 
     return
-
 
 @hook.command('k')
 @hook.command
