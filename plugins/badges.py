@@ -1,11 +1,46 @@
 # -*- utf-8 -*-
 from util import ( hook, timesince )
-
 import time
 import re
 
 db_ready = False
 
+@hook.command('badge')
+@hook.command('b')
+def badge_handler(input, nick = None, chan = None, db = None):
+    if not db_ready : 
+        _db_init(db)
+    
+    badge = Badge(db)
+    args  = re.findall(r'\w+|"(?:\\"|[^"])+"', input)
+
+    # badge create <name> [<price>]
+    if   args[0] == u'create':
+        badge_create_handler(args[1:], badge)
+    # badge remove <name>
+    elif args[0] == u'remove':
+        badge_remove_handler(args[1:], badge)
+    # badge user <nick> give   <name>
+    # badge user <nick> remove <name>
+    elif args[0] == u'user':
+        badge_user_handler(args[1:], badge)
+    # badge buy <name>
+    elif args[0] == u'buy':
+        badge_user_handler(args[1:], badge)
+    else:
+        pass
+
+def badge_create_handler(args, badge):
+    pass
+
+def badge_remove_handler(args, badge):
+    pass
+
+def badge_user_handler(args, badge):
+    pass
+
+def badge_buy_handler(args, badge):
+    pass
 
 def _db_init(db):
     db.execute("""CREATE TABLE IF NOT EXISTS badge (
@@ -49,12 +84,12 @@ class Badge(object):
 
         return badges
 
-    def add(self, name, price = 0):
+    def create(self, name, price = 0):
         self.db.execute('''INSERT INTO badge
                         (name, price)
                       VALUES
                         (:name, :price)''', {
-                        'name':  name.strip().lowercase(),
+                        'name' : name.strip().lowercase(),
                         'price': price if price > 0 else 0
                     })
 
