@@ -7,13 +7,6 @@ import re
 db_ready = False
 
 
-@hook.command('koko')
-def a(input, nick =  '', chan = '', db = None):
-    if not db_ready:
-        _db_init(db)
-    print _badge_exist('foo', db)
-    return 'he'
-
 def _db_init(db):
     db.execute("""CREATE TABLE IF NOT EXISTS badge (
                id    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,7 +18,7 @@ def _db_init(db):
                badge_id      INTEGER NOT NULL,
                session_badge BOOLEAN NOT NULL DEFAULT FALSE,
                expirable     BOOLEAN NOT NULL DEFAULT FALSE,
-               expire_at     DATE,
+               expire_at     DATETIME DEFAULT NULL,
                PRIMARY KEY(nick, badge_id), 
                FOREIGN KEY(badge_id) REFERENCES badge(id) )""")
 
@@ -62,7 +55,7 @@ class Badge(object):
                       VALUES
                         (:name, :price)''', {
                         'name':  name.strip().lowercase(),
-                        'price': price if price > 0 else : 0
+                        'price': price if price > 0 else 0
                     })
 
     def remove(self, name):
@@ -88,19 +81,18 @@ class Badge(object):
 
         return badge_exist
 
-    def user_has(self, nick, id_badge):
+    def user_has(self, nick, badge_id):
         cursor = self.db.cursor()
 
         cursor.execute('''SELECT COUNT(b.id) as count 
                           FROM badge b
                            JOIN user_badge ub ON b.id = ub.badge_id
                           WHERE ub.nick = :nick AND
-                                b.id    = :id_badge ''', { 
+                                b.id    = :badge_id ''', { 
                             'nick'     : for_nick.strip().lowercase(),
-                            'id_badge' : id_badge
+                            'badge_id' : badge_id
                           })
        
-
         row       = cursor.fetchone()
         has_badge = row[0] > 0
 
@@ -108,7 +100,20 @@ class Badge(object):
 
         return has_badge
 
-    def user_add(self, nick, id_badge):
+    def user_add(self, nick, badge_id, session_badge = False, expirable = False, 
+                 expire_at = None):
+
+        self.db('''INSERT INTO 
+                     (nick, badge_id, session_badge, expirable, expire_at) 
+                   VALUES 
+                     (:nick, :badge_id, :session_badge, :expirable, :expire_at)''', 
+                {
+                    'nick'          : nick.strip().lowercase(),
+                    'badge_id'      : badge_id,
+                    'session_badge' : session_badge,
+                    'expirable'     : expirable,
+                    'expire_at'     : expire_at
+                })
         pass
 
     def user_remove(self, nick, badge_id):
