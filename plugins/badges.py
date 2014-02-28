@@ -242,6 +242,7 @@ class Badge(object):
 
     def remove_all(self):
         self.db.execute('DELETE FROM badge')
+        self.db.commit()
 
     def all(self, for_nick = None, order_by = 'b.price DESC'):
         cursor = self.db.cursor()
@@ -273,12 +274,14 @@ class Badge(object):
                         'name' : name.strip(),
                         'price': price if price > 0 else 0
                     })
+        self.db.commit()
 
     def remove(self, name):
         self.db.execute('''DELETE FROM badge 
                            WHERE Lower(name) = Lower(:name)''', {
                             'name': name.strip()
                         })
+        self.db.commit()
 
     def exist(self, name):
         cursor = self.db.cursor()
@@ -336,3 +339,4 @@ class Badge(object):
                     'nick'    : nick.strip().lower(),
                     'badge_id': badge_id
                    })
+        self.db.commit()
