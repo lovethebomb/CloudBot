@@ -21,7 +21,27 @@ def badge(input, nick = None, chan = None, db = None, notice = None, message = N
 
 class BadgeHandler(object):
 
-    usage = '''Usage: rtfm'''
+    taxe_percentage = 0.10
+
+    usage = u'''Badge usage:
+This help:
+    badge help
+Create a new badge:
+    badge create <name> [<price>]
+Delete a badge:
+    badge remove <name>
+List all available badges
+    badge list 
+Buy a badge for yourself:
+    badge buy <name> 
+Give a badge you own to an another nick
+    badge user <nick> give   <name>
+Remove a badge for a nick
+    badge user <nick> remove <name>
+Remove all the badges of a nick 
+    badge user <nick> remove-all 
+List all the badges for a nick
+    badge user <nick> list'''
 
     def __init__(self, nick = None, chan = None, db = None, notice = None, 
                        message = None, bot = None):
@@ -61,7 +81,7 @@ class BadgeHandler(object):
         if not target:
             target = self.current_chan
 
-        self.multiline(message, target, self._notice)
+        self.multiline(message, target, self._message)
 
     def _parse_args(self, input):
         args = re.findall(r'\w+|"(?:\\"|[^"])+"', input) 
@@ -110,7 +130,6 @@ class BadgeHandler(object):
             elif command == u'user':
                 try:
                     nick = self.args[1]
-                    print karma.available(self.db, nick)
                     try :
                         subcommand = self.args[2]
                         try:
@@ -144,6 +163,8 @@ class BadgeHandler(object):
                     self.buy(name)
                 except IndexError:
                     self.notice('Missing badge name')
+            elif command == u'help':
+                self.notice(BadgeHandler.usage)
             else:
                 self.notice(BadgeHandler.usage)
         except IndexError:
@@ -191,17 +212,51 @@ class BadgeHandler(object):
         self.message(str(table))
 
     def user_give(self, nick, name):
-        pass
+        if self.badge.exist(name):
+            badge = self.badge.by_name(name)
+
+            if self.badge.user_has(nick = self.current_nick, badge_id = badge[0]):
+                
+                price = int(badge[2])
+                taxe  = int(price * BadgeHandler.taxe_percentage)
+
+                if karma.available(self.db, self.current_nick) >= taxe:
+                    karma.down(self.db, taxe, self.current_nick)
+                    self.badge.user_remove(nick = self.current_nick, badge_id = badge[0])
+                    self.badge.user_add(nick, badge_id = badge[0])
+                else:
+                    self.notice('You need {karma} (taxe) to perform this action'.format(karma = taxe))
+            else:
+                self.notice('You dont\'t have the badge {name}'.format(name = name))
+        else:
+            self.notice('The badge {name} doesn\'t exist'.format(name = name))
 
     def user_remove(self, nick, name):
-        pass
+        if self.badge.exist(name):
+            badge = self.badge.by_name(name)
+            if self.badge.user_has(nick = nick, badge_id = badge[0]):
+                pass
+            else:
+                self.notice('You dont\'t have the badge {name}'.format(name = name))
+        else:
+            self.notice('The badge {name} doesn\'t exist'.format(name = name))
 
     def user_remove_all(self, nick):
         pass
 
     def user_list(self, nick):
-        pass
+        badges = self.badge.all(order_by = 'b.price DESC', for_nick = nick)
+        table  = PrettyTable(['Name', 'Price'])
 
+        table.align['Name'] = 'l'
+
+        for badge in badges: 
+            name    = badge[1]
+            price   = badge[2]
+
+            table.add_row([name, price])
+        
+        self.message(str(table))
 
 def _db_init(db):
     db.execute("""CREATE TABLE IF NOT EXISTS badge (
@@ -216,7 +271,7 @@ def _db_init(db):
                expirable     BOOLEAN NOT NULL DEFAULT FALSE,
                expire_at     DATETIME DEFAULT NULL,
                PRIMARY KEY(nick, badge_id), 
-               FOREIGN KEY(badge_id) REFERENCES badge(id) )""")
+               FOREIGN KEY(badge_id) REFERENCES badge(id) ON DELETE CASCADE )""")
 
     db_ready = True
 
@@ -307,7 +362,7 @@ class Badge(object):
                            JOIN user_badge ub ON b.id = ub.badge_id
                           WHERE ub.nick = :nick AND
                                 b.id    = :badge_id ''', { 
-                            'nick'     : for_nick.strip().lower(),
+                            'nick'     : nick.strip().lower(),
                             'badge_id' : badge_id
                           })
        
@@ -332,10 +387,9 @@ class Badge(object):
                 })
 
     def user_remove(self, nick, badge_id):
-        db.execute('''DELETE badge 
+        self.db.execute('''DELETE FROM user_badge
                       WHERE nick     = :nick AND
-                            badge_id = :badge_id
-                      LIMIT 0, 1 ''', {
+                            badge_id = :badge_id''', {
                     'nick'    : nick.strip().lower(),
                     'badge_id': badge_id
                    })
