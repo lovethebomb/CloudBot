@@ -1,46 +1,187 @@
 # -*- utf-8 -*-
-from util import ( hook, timesince )
+from util        import ( hook, timesince )
+from prettytable import PrettyTable
+
 import time
 import re
+import types
 
 db_ready = False
 
 @hook.command('badge')
 @hook.command('b')
-def badge_handler(input, nick = None, chan = None, db = None):
-    if not db_ready : 
-        _db_init(db)
-    
-    badge = Badge(db)
-    args  = re.findall(r'\w+|"(?:\\"|[^"])+"', input)
+def badge(input, nick = None, chan = None, db = None, notice = None, message = None,
+                 bot = None ):
+    handler = BadgeHandler(nick, chan, db, notice, message, bot)
 
-    # badge create <name> [<price>]
-    if   args[0] == u'create':
-        badge_create_handler(args[1:], badge)
-    # badge remove <name>
-    elif args[0] == u'remove':
-        badge_remove_handler(args[1:], badge)
-    # badge user <nick> give   <name>
-    # badge user <nick> remove <name>
-    elif args[0] == u'user':
-        badge_user_handler(args[1:], badge)
-    # badge buy <name>
-    elif args[0] == u'buy':
-        badge_user_handler(args[1:], badge)
-    else:
+    handler.dispatch(input)
+
+    return ''
+
+class BadgeHandler(object):
+
+    usage = '''Usage: rtfm'''
+
+    def __init__(self, nick = None, chan = None, db = None, notice = None, 
+                       message = None, bot = None):
+        self.current_nick = nick
+        self.current_chan = chan
+        self.bot          = bot
+        self.db           = db
+        self._notice      = notice 
+        self._message     = message
+
+        if not db_ready :
+            _db_init(self.db)
+
+        self.badge        = Badge(self.db)
+
+    def multiline(self, message, target, method): # todo move outside
+        lines = None
+
+        try :
+            lines = message.split('\n')
+        except AttributeError:
+            lines = message
+
+        for line in lines:
+            method(message = line, target = target)
+
+    def notice(self, message, target = None): # todo move outside
+        if not target:
+            target = self.current_nick
+
+        self.multiline(message, target, self._notice)        
+
+    def message(self, message, target = None): # todo move outside
+        if not target:
+            target = self.current_chan
+
+        self.multiline(message, target, self._notice)
+
+    def _parse_args(self, input):
+        args = re.findall(r'\w+|"(?:\\"|[^"])+"', input) 
+        args = [ arg.strip('"\'') for arg in args ]
+
+        return args
+
+    def dispatch(self, input):
+        self.args   = self._parse_args(input) 
+        try:
+            command = self.args[0]
+
+            # badge create <name> [<price>]
+            if   command == u'create':
+                try:
+                    name  = self.args[1]
+                    price = 0
+                    try:
+                        price = int(self.args[2])
+                    except IndexError:
+                        pass
+                    except ValueError:
+                        self.notice('Bad price format')
+
+                    self.create(name, price)
+                except IndexError:
+                    self.notice('Missing badge name')
+
+            # badge remove <name>
+            elif command == u'remove':
+                try:
+                    name  = self.args[1]
+                    self.remove(name)
+                except IndexError:
+                    self.notice('Missing badge name')
+            # badge remove-all
+            elif command == u'remove-all':
+                pass
+            # badge list
+            elif command == u'list':
+                self.list()
+            # badge user <nick> give   <name>
+            # badge user <nick> remove <name>
+            # badge user <nick> remove-all 
+            # badge user <nick> list 
+            elif command == u'user':
+                try:
+                    nick = self.args[1]
+                    try :
+                        subcommand = self.args[2]
+                        try:
+                            name = self.args[3]
+                            if   subcommand == u'give':
+                                self.user_give(nick, name)
+                            elif subcommand == u'remove':
+                                self.user_remove(nick, name)
+                            else:
+                               self.notice('Uknow subcommand (give, remove, remove-all, list)')
+                        except IndexError:
+                            if   subcommand == u'list':
+                                self.user_list(nick)
+                            elif subcommand == u'remove-all':
+                                self.user_remove_all(nick)
+                            elif subcommand in ['give', 'remove']
+                                self.notice('Missing badge name')
+                            else:
+                                self.notice('Uknow subcommand (give, remove, remove-all, list)')  
+
+                    except IndexError:
+                        self.notice('Missing subcommand (give, remove, remove-all, list)')
+
+                except IndexError:
+                    self.notice('Missing nickname')
+
+            # badge buy <name> 
+            elif command == u'buy':
+                pass
+            else:
+                self.notice(BadgeHandler.usage)
+        except IndexError:
+            self.notice(BadgeHandler.usage)
+
+
+    def create(self, name, price):
+        if not self.badge.exist(name):
+            self.badge.create(name, price)
+        else:
+            self.notice('The badge {name} already exist'.format(name = name))
+
+    def remove(self, name):
+        if self.badge.exist(name):
+            self.badge.remove(name)
+        else:
+            self.notice('The badge {name} doesn\'t exist'.format(name = name))
+
+    def buy(self):
         pass
 
-def badge_create_handler(args, badge):
-    pass
+    def list(self):   
+        badges = self.badge.all(order_by = 'b.price DESC')
+        table  = PrettyTable(['Name', 'Price'])
 
-def badge_remove_handler(args, badge):
-    pass
+        table.align['Name'] = 'l'
 
-def badge_user_handler(args, badge):
-    pass
+        for badge in badges: 
+            name    = badge[1]
+            price   = badge[2]
 
-def badge_buy_handler(args, badge):
-    pass
+            table.add_row([name, price])
+        
+        self.message(str(table))
+
+    def user_give(self, nick, name):
+        pass
+
+    def user_remove(self, nick, name):
+        pass
+
+    def user_remove_all(self, nick):
+        pass
+
+    def user_list(self, nick):
+        pass
+
 
 def _db_init(db):
     db.execute("""CREATE TABLE IF NOT EXISTS badge (
@@ -64,19 +205,24 @@ class Badge(object):
     def __init__(self, db):
         self.db = db
 
-    def all(self, for_nick):
+    def remove_all(self):
+        self.db.execute('DELETE FROM badge')
+
+    def all(self, for_nick = None, order_by = 'b.price DESC'):
         cursor = self.db.cursor()
 
         if for_nick:
-            cursor.execute('''SELECT b.name, b.price, 
+            cursor.execute('''SELECT b.id, b.name, b.price, 
                               FROM badge b
                                JOIN user_badge ub ON b.id = ub.badge_id
-                              WHERE ub.nick = :nick ''', { 
-                                'nick' : for_nick.strip().lowercase()
+                              WHERE ub.nick = :nick 
+                              ORDER BY {order_by} '''.format(order_by = order_by), { 
+                                'nick' : for_nick.strip().lower()
                               })
         else:
-            cursor.execute('''SELECT id, name, price 
-                              FROM badge ''')       
+            cursor.execute('''SELECT b.id, b.name, b.price 
+                              FROM badge b
+                              ORDER BY {order_by} '''.format(order_by = order_by))       
 
         badges = cursor.fetchall()
 
@@ -89,15 +235,14 @@ class Badge(object):
                         (name, price)
                       VALUES
                         (:name, :price)''', {
-                        'name' : name.strip().lowercase(),
+                        'name' : name.strip(),
                         'price': price if price > 0 else 0
                     })
 
     def remove(self, name):
-        self.db.execute('''DELETE badge 
-                           WHERE name = :name 
-                           LIMIT 0, 1 ''', {
-                            'name': name.strip().lowercase()
+        self.db.execute('''DELETE FROM badge 
+                           WHERE Lower(name) = Lower(:name)''', {
+                            'name': name.strip()
                         })
 
     def exist(self, name):
@@ -105,8 +250,8 @@ class Badge(object):
 
         cursor.execute('''SELECT COUNT(id) as count 
                           FROM badge 
-                          WHERE Upper(name) = Upper(Trim(:name))''', {
-                            'name': name
+                          WHERE Lower(name) = Lower(:name)''', {
+                            'name': name.strip()
                           })
 
         row         = cursor.fetchone()
@@ -124,7 +269,7 @@ class Badge(object):
                            JOIN user_badge ub ON b.id = ub.badge_id
                           WHERE ub.nick = :nick AND
                                 b.id    = :badge_id ''', { 
-                            'nick'     : for_nick.strip().lowercase(),
+                            'nick'     : for_nick.strip().lower(),
                             'badge_id' : badge_id
                           })
        
@@ -135,15 +280,14 @@ class Badge(object):
 
         return has_badge
 
-    def user_add(self, nick, badge_id, session_badge = False, expirable = False, 
-                 expire_at = None):
+    def user_add(self, nick, badge_id, session_badge = False, expirable = False, expire_at = None):
 
         self.db('''INSERT INTO 
                      (nick, badge_id, session_badge, expirable, expire_at) 
                    VALUES 
                      (:nick, :badge_id, :session_badge, :expirable, :expire_at)''', 
                 {
-                    'nick'          : nick.strip().lowercase(),
+                    'nick'          : nick.strip().lower(),
                     'badge_id'      : badge_id,
                     'session_badge' : session_badge,
                     'expirable'     : expirable,
@@ -156,6 +300,6 @@ class Badge(object):
                       WHERE nick     = :nick AND
                             badge_id = :badge_id
                       LIMIT 0, 1 ''', {
-                    'nick'    : nick.strip().lowercase(),
+                    'nick'    : nick.strip().lower(),
                     'badge_id': badge_id
                    })
