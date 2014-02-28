@@ -1,10 +1,11 @@
-# -*- utf-8 -*-
+
 from util        import ( hook, timesince )
 from prettytable import PrettyTable
 
 import time
 import re
 import types
+import karma
 
 db_ready = False
 
@@ -16,7 +17,7 @@ def badge(input, nick = None, chan = None, db = None, notice = None, message = N
 
     handler.dispatch(input)
 
-    return ''
+    return 
 
 class BadgeHandler(object):
 
@@ -31,8 +32,11 @@ class BadgeHandler(object):
         self._notice      = notice 
         self._message     = message
 
-        if not db_ready :
+        if not db_ready:
             _db_init(self.db)
+
+        if not karma.db_ready:
+            karma.db_init(self.db)
 
         self.badge        = Badge(self.db)
 
@@ -106,6 +110,7 @@ class BadgeHandler(object):
             elif command == u'user':
                 try:
                     nick = self.args[1]
+                    print karma.available(self.db, nick)
                     try :
                         subcommand = self.args[2]
                         try:
@@ -115,13 +120,13 @@ class BadgeHandler(object):
                             elif subcommand == u'remove':
                                 self.user_remove(nick, name)
                             else:
-                               self.notice('Uknow subcommand (give, remove, remove-all, list)')
+                               self.notice('Unknow subcommand (give, remove, remove-all, list)')
                         except IndexError:
                             if   subcommand == u'list':
                                 self.user_list(nick)
                             elif subcommand == u'remove-all':
                                 self.user_remove_all(nick)
-                            elif subcommand in ['give', 'remove']
+                            elif subcommand in ('give', 'remove'):
                                 self.notice('Missing badge name')
                             else:
                                 self.notice('Uknow subcommand (give, remove, remove-all, list)')  
@@ -134,7 +139,11 @@ class BadgeHandler(object):
 
             # badge buy <name> 
             elif command == u'buy':
-                pass
+                try:
+                    name  = self.args[1]
+                    self.buy(name)
+                except IndexError:
+                    self.notice('Missing badge name')
             else:
                 self.notice(BadgeHandler.usage)
         except IndexError:
@@ -153,8 +162,19 @@ class BadgeHandler(object):
         else:
             self.notice('The badge {name} doesn\'t exist'.format(name = name))
 
-    def buy(self):
-        pass
+    def buy(self, name):
+        if self.badge.exist(name):
+            badge = self.badge.by_name(name)
+            id    =  badge[0]
+            price = int(badge[2])
+
+            if karma.available(self.db, self.current_nick) >= price: 
+                self.badge.user_add(self.current_nick, id)
+                karma.down(self.db, price, self.current_nick)
+            else:
+                self.notice('You need {karma} for the badge {name}'.format(karma = price, name = name))
+        else:
+            self.notice('The badge {name} doesn\'t exist'.format(name = name))
 
     def list(self):   
         badges = self.badge.all(order_by = 'b.price DESC')
@@ -205,6 +225,21 @@ class Badge(object):
     def __init__(self, db):
         self.db = db
 
+    def by_name(self, name):
+        cursor = self.db.cursor()
+
+        cursor.execute('''SELECT b.id, b.name, b.price
+                          FROM badge b
+                          WHERE Lower(name) = Lower(:name)''', {
+                            'name': name.strip()
+                          })
+
+        row         = cursor.fetchone()
+
+        cursor.close();
+
+        return row
+
     def remove_all(self):
         self.db.execute('DELETE FROM badge')
 
@@ -212,7 +247,7 @@ class Badge(object):
         cursor = self.db.cursor()
 
         if for_nick:
-            cursor.execute('''SELECT b.id, b.name, b.price, 
+            cursor.execute('''SELECT b.id, b.name, b.price
                               FROM badge b
                                JOIN user_badge ub ON b.id = ub.badge_id
                               WHERE ub.nick = :nick 
@@ -281,8 +316,7 @@ class Badge(object):
         return has_badge
 
     def user_add(self, nick, badge_id, session_badge = False, expirable = False, expire_at = None):
-
-        self.db('''INSERT INTO 
+        self.db.execute('''INSERT INTO user_badge
                      (nick, badge_id, session_badge, expirable, expire_at) 
                    VALUES 
                      (:nick, :badge_id, :session_badge, :expirable, :expire_at)''', 
@@ -293,7 +327,6 @@ class Badge(object):
                     'expirable'     : expirable,
                     'expire_at'     : expire_at
                 })
-        pass
 
     def user_remove(self, nick, badge_id):
         db.execute('''DELETE badge 

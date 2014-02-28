@@ -20,18 +20,29 @@ def db_init(db):
                PRIMARY KEY(voter, votee))""")
     db_ready = True
 
+def available(db, nick_vote):
+    karma = 0
+    row = db.execute('SELECT up_karma, down_karma FROM karma WHERE nick_vote = ?', 
+              (nick_vote.lower(),)).fetchone()
 
-def up(db, nick_vote):
+    try:
+        karma = row[0] - row[1]
+    except TypeError: # nick doesn't exsist / empty result
+        pass
+
+    return karma
+
+def up(db, karma, nick_vote):
     db.execute("""UPDATE karma SET
-               up_karma = up_karma + 1,
-               total_karma = total_karma + 1 WHERE nick_vote=?""", (nick_vote.lower(),))
+               up_karma = up_karma + :karma,
+               total_karma = total_karma + :karma WHERE nick_vote= :nick""", {'karma' : karma, 'nick' : nick_vote.lower()})
     db.commit()
 
 
-def down(db, nick_vote):
+def down(db, karma, nick_vote):
     db.execute("""UPDATE karma SET
-               down_karma = down_karma + 1,
-               total_karma = total_karma + 1 WHERE nick_vote=?""", (nick_vote.lower(),))
+               down_karma = down_karma + :karma,
+               total_karma = total_karma + :karma WHERE nick_vote= :nick""", {'karma' : karma, 'nick' : nick_vote.lower()})
     db.commit()
 
 
@@ -89,19 +100,19 @@ def karma_add(match, nick='', chan='', db=None, notice=None):
                        up_karma,
                        down_karma,
                        total_karma) values(?,?,?,?)""", (nick_vote.lower(),0,0,0))
-            up(db, nick_vote)
+            up(db, 1, nick_vote)
             notice("Gave {} 1 karma!".format(nick_vote))
         if match.group(2) == '--':
             if nick_vote.lower() == 'dysosmus':
-			    up(db, nick_vote)
-                notice("Gave {} 1 karma :3".format(nick_vote)
+                up(db, 1, nick_vote)
+                notice("Gave {} 1 karma :3".format(nick_vote))
             else:
-			    idb.execute("""INSERT or IGNORE INTO karma(
+                idb.execute("""INSERT or IGNORE INTO karma(
                        nick_vote,
                        up_karma,
                        down_karma,
                        total_karma) values(?,?,?,?)""", (nick_vote.lower(),0,0,0))
-                down(db, nick_vote)
+                down(db, 1, nick_vote)
                 notice("Took away 1 karma from {}.".format(nick_vote))
         else:
             return
