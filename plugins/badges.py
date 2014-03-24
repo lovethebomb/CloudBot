@@ -167,7 +167,7 @@ List all the badges for a nick
                             if   subcommand == u'give':
                                 self.user_give(nick, name)
                             elif subcommand == u'remove':
-                                if current_nick in permissions['badge']['remove']:
+                                if self.current_nick in permissions['badge']['remove']:
                                     self.user_remove(nick, name)
                                 else:
                                     self.notice('You don\'t have the right permission.')
@@ -177,7 +177,7 @@ List all the badges for a nick
                             if   subcommand == u'list':
                                 self.user_list(nick)
                             elif subcommand == u'remove-all':
-                                if current_nick in permissions['badge']['remove']:
+                                if self.current_nick in permissions['badge']['remove']:
                                     self.user_remove_all(nick)
                                 else:
                                     self.notice('You don\'t have the right permission.')
@@ -194,7 +194,7 @@ List all the badges for a nick
 
             # badge buy <name> 
             elif command == u'buy':
-                if current_nick in permissions['badge']['buy']:
+                if self.current_nick in permissions['badge']['buy']:
                     try:
                         name  = self.args[1]
                         self.buy(name)
