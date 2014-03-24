@@ -6,8 +6,27 @@ import time
 import re
 import types
 import karma
+ 
+class RoleEveryone(dict):
 
-db_ready = False
+    def __contains__(self, item):
+        return True
+
+db_ready    = False
+roles       = {
+    'admin': ['lovethebomb', 'dysosmus'],
+    'everyone': RoleEveryone()
+}
+
+permissions = {
+    'badge' : {
+        'give' :      roles['everyone'],
+        'buy' :       roles['everyone'],
+        'create' :    roles['admin'],
+        'remove':     roles['admin'],
+        'remove-all': roles['admin']
+    } 
+}
 
 @hook.command('badge')
 @hook.command('b')
@@ -96,30 +115,39 @@ List all the badges for a nick
 
             # badge create <name> [<price>]
             if   command == u'create':
-                try:
-                    name  = self.args[1]
-                    price = 0
+                if self.nick in permissions['badge']['create']:
                     try:
-                        price = int(self.args[2])
-                    except IndexError:
-                        pass
-                    except ValueError:
-                        self.notice('Bad price format')
+                        name  = self.args[1]
+                        price = 0
+                        try:
+                            price = int(self.args[2])
+                        except IndexError:
+                            pass
+                        except ValueError:
+                            self.notice('Bad price format')
 
-                    self.create(name, price)
-                except IndexError:
-                    self.notice('Missing badge name')
+                        self.create(name, price)
+                    except IndexError:
+                        self.notice('Missing badge name')
+                else:
+                    self.notice('You don\'t have the right permission.')
 
             # badge remove <name>
             elif command == u'remove':
-                try:
-                    name  = self.args[1]
-                    self.remove(name)
-                except IndexError:
-                    self.notice('Missing badge name')
+                if self.nick in permissions['badge']['remove']:
+                    try:
+                        name  = self.args[1]
+                        self.remove(name)
+                    except IndexError:
+                        self.notice('Missing badge name')
+                else:
+                    self.notice('You don\'t have the right permission.')
             # badge remove-all
             elif command == u'remove-all':
-                pass
+                if self.nick in permissions['badge']['remove-all']:
+                    pass
+                else:
+                    self.notice('You don\'t have the right permission.')
             # badge list
             elif command == u'list':
                 self.list()
@@ -137,14 +165,20 @@ List all the badges for a nick
                             if   subcommand == u'give':
                                 self.user_give(nick, name)
                             elif subcommand == u'remove':
-                                self.user_remove(nick, name)
+                                if self.nick in permissions['badge']['remove']:
+                                    self.user_remove(nick, name)
+                                else:
+                                    self.notice('You don\'t have the right permission.')
                             else:
                                self.notice('Unknow subcommand (give, remove, remove-all, list)')
                         except IndexError:
                             if   subcommand == u'list':
                                 self.user_list(nick)
                             elif subcommand == u'remove-all':
-                                self.user_remove_all(nick)
+                                if self.nick in permissions['badge']['remove']:
+                                    self.user_remove_all(nick)
+                                else:
+                                    self.notice('You don\'t have the right permission.')
                             elif subcommand in ('give', 'remove'):
                                 self.notice('Missing badge name')
                             else:
@@ -158,11 +192,14 @@ List all the badges for a nick
 
             # badge buy <name> 
             elif command == u'buy':
-                try:
-                    name  = self.args[1]
-                    self.buy(name)
-                except IndexError:
-                    self.notice('Missing badge name')
+                if self.nick in permissions['badge']['buy']:
+                    try:
+                        name  = self.args[1]
+                        self.buy(name)
+                    except IndexError:
+                        self.notice('Missing badge name')
+                else:
+                    self.notice('You don\'t have the right permission.')
             elif command == u'help':
                 self.notice(BadgeHandler.usage)
             else:

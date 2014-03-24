@@ -4,6 +4,7 @@ import time
 import re
 
 db_ready = False
+ops      = [ 'dysosmus' ]
 
 
 def db_init(db):
@@ -45,9 +46,11 @@ def down(db, karma, nick_vote):
                total_karma = total_karma + :karma WHERE nick_vote= :nick""", {'karma' : karma, 'nick' : nick_vote.lower()})
     db.commit()
 
-
 def allowed(db, nick, nick_vote):
-    time_restriction = 256
+    if nick.lower() in ops:
+      return True, 0
+
+    time_restriction = 10
     db.execute("""DELETE FROM karma_voters WHERE ? - epoch >= 3600""",
             (time.time(),))
     db.commit()
@@ -77,7 +80,7 @@ def allowed(db, nick, nick_vote):
 # TODO Make this work on multiple matches in a string, right now it'll only
 # work on one match. 
 # karma_re = ('((\S+)(\+\+|\-\-))+', re.I)
-karma_re = ('(.+)(\+\+|\-\-)$', re.I)
+karma_re = ('(.+)(\+\+|\-\-)( [0-9]+)?$', re.I)
 
 @hook.regex(*karma_re)
 def karma_add(match, nick='', chan='', db=None, notice=None):
@@ -93,27 +96,32 @@ def karma_add(match, nick='', chan='', db=None, notice=None):
         return # ignore anything below 3 chars in length or with spaces
 
     vote_allowed, when = allowed(db, nick, nick_vote)
-    if vote_allowed or nick.lower() == 'dysosmus':
+    if vote_allowed:
+        karma_value = 1
+        if match.group(3) and nick.lower() in ops:
+            karma_value = int(match.group(3))
+
         if match.group(2) == '++':
             db.execute("""INSERT or IGNORE INTO karma(
                        nick_vote,
                        up_karma,
                        down_karma,
                        total_karma) values(?,?,?,?)""", (nick_vote.lower(),0,0,0))
-            up(db, 1, nick_vote)
-            notice("Gave {} 1 karma!".format(nick_vote))
+
+            up(db, karma_value, nick_vote)
+            notice("Gave {} {!s} karma!".format(nick_vote, karma_value))
         if match.group(2) == '--':
-            if nick_vote.lower() == 'dysosmus':
+            if nick_vote.lower() in ops:
                 up(db, 1, nick_vote)
                 notice("Gave {} 1 karma :3".format(nick_vote))
             else:
-                idb.execute("""INSERT or IGNORE INTO karma(
+                db.execute("""INSERT or IGNORE INTO karma(
                        nick_vote,
                        up_karma,
                        down_karma,
                        total_karma) values(?,?,?,?)""", (nick_vote.lower(),0,0,0))
-                down(db, 1, nick_vote)
-                notice("Took away 1 karma from {}.".format(nick_vote))
+                down(db, karma_value, nick_vote)
+                notice("Took away {!s} karma from {}.".format(karma_value, nick_vote))
         else:
             return
     else:
