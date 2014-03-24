@@ -6,7 +6,7 @@ import time
 import re
 import types
 import karma
- 
+
 class RoleEveryone(dict):
 
     def __contains__(self, item):
@@ -64,7 +64,7 @@ List all the badges for a nick
 
     def __init__(self, nick = None, chan = None, db = None, notice = None, 
                        message = None, bot = None):
-        self.current_nick = nick
+        self.current_nick = nick.lower()
         self.current_chan = chan
         self.bot          = bot
         self.db           = db
@@ -115,7 +115,9 @@ List all the badges for a nick
 
             # badge create <name> [<price>]
             if   command == u'create':
-                if self.nick in permissions['badge']['create']:
+                print self.current_nick
+                print permissions['badge']['create']
+                if self.current_nick in permissions['badge']['create']:
                     try:
                         name  = self.args[1]
                         price = 0
@@ -134,7 +136,7 @@ List all the badges for a nick
 
             # badge remove <name>
             elif command == u'remove':
-                if self.nick in permissions['badge']['remove']:
+                if self.current_nick in permissions['badge']['remove']:
                     try:
                         name  = self.args[1]
                         self.remove(name)
@@ -144,7 +146,7 @@ List all the badges for a nick
                     self.notice('You don\'t have the right permission.')
             # badge remove-all
             elif command == u'remove-all':
-                if self.nick in permissions['badge']['remove-all']:
+                if self.current_nick in permissions['badge']['remove-all']:
                     pass
                 else:
                     self.notice('You don\'t have the right permission.')
@@ -165,7 +167,7 @@ List all the badges for a nick
                             if   subcommand == u'give':
                                 self.user_give(nick, name)
                             elif subcommand == u'remove':
-                                if self.nick in permissions['badge']['remove']:
+                                if current_nick in permissions['badge']['remove']:
                                     self.user_remove(nick, name)
                                 else:
                                     self.notice('You don\'t have the right permission.')
@@ -175,7 +177,7 @@ List all the badges for a nick
                             if   subcommand == u'list':
                                 self.user_list(nick)
                             elif subcommand == u'remove-all':
-                                if self.nick in permissions['badge']['remove']:
+                                if current_nick in permissions['badge']['remove']:
                                     self.user_remove_all(nick)
                                 else:
                                     self.notice('You don\'t have the right permission.')
@@ -192,7 +194,7 @@ List all the badges for a nick
 
             # badge buy <name> 
             elif command == u'buy':
-                if self.nick in permissions['badge']['buy']:
+                if current_nick in permissions['badge']['buy']:
                     try:
                         name  = self.args[1]
                         self.buy(name)
